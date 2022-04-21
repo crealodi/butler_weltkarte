@@ -27,6 +27,8 @@ StateFunc puzzle_init()
   pinMode(PIN_IN_TUER_AUF_TASTE, INPUT);
 
   for (int i = 22; i<46; i++){
+
+    pinMode(i, INPUT);
     Serial.println(i);
   }
 
@@ -36,14 +38,17 @@ StateFunc puzzle_init()
 StateFunc puzzle_gameMode()
 {
   static unsigned long lastMillis = millis();
-
   uint8_t inputState = getInputState();
-
   
 
 
+  if (inputState & 0b1 || inputState & 0b10000){ //alle inputs Richtig oder switch gedrückt --> Türe auf!
+    return (StateFunc)puzzle_openRelay;
+  }
+  
   if (lastMillis + 1000 < millis()){
     lastMillis = millis();
+    //Serial.println(getInputState() & 0b1);
 
   }
   
@@ -98,6 +103,9 @@ StateFunc puzzle_solved()
   Serial.println("Solved State");
   //Do something specific or just wait a bit before returning to gamemode.
   delay(WAIT_TIME_IN_PUZZLE_SOLVED_MS);
+
+ 
+
   return (StateFunc)puzzle_init;
 }
 
@@ -107,7 +115,7 @@ uint8_t getInputState(){
   //   128    64     32     16     8       4      2      1
   //    7      6      5      4      3      2      1      0
   //   NU     NU      NU    SWITCH  LOCK  NU     NU  ALLCORRECT
-  // SWITCH IS WITH PULLUP - INVERT IT for logical function (high when pressed)
+  // SWITCH IS OVER OPTO - Don't invert it for logical function (high when pressed)
   static unsigned long lockStateDebounceMillis = millis();
   static unsigned long openDoorSwitchDebounceMillis = millis();
   static bool lastStateLock = false;
@@ -115,10 +123,7 @@ uint8_t getInputState(){
 
   uint8_t inputState = 0;
 
-  
-
-
-  if (digitalRead(PIN_IN_SCHLOSS) != lastStateLock)
+  if (digitalRead(PIN_IN_SCHLOSS) != lastStateLock) //debounce routine 
   {
     lastStateLock = digitalRead(PIN_IN_SCHLOSS);
     lockStateDebounceMillis = millis();
@@ -128,15 +133,59 @@ uint8_t getInputState(){
       inputState |= (lastStateLock << 3);
   }
 
-  if (digitalRead(PIN_IN_TUER_AUF_TASTE) != lastStateSwitch)
+  if (digitalRead(PIN_IN_TUER_AUF_TASTE) != lastStateSwitch) //debounce routine
   {
     lastStateSwitch = digitalRead(PIN_IN_TUER_AUF_TASTE);
     openDoorSwitchDebounceMillis = millis();
   }  
     
   if (openDoorSwitchDebounceMillis + DEBOUNCE_MS < millis()){
-      inputState |= (!lastStateSwitch << 4);
+      inputState |= (lastStateSwitch << 4); //for switches with inverted logic just do (!lastStateSwitch << 4); instead
   }
+
+
+  bool alleInputsRichtig = true; //zu Beginn geht man davon dass alles stimmt.
+  //invertierte Logik
+  
+  for (int i = 22; i<46; i++){
+    int dieserInputMuss1Sein = false;
+    for (int j=0; j<sizeof(c_correctInputs); j++){
+      if (c_correctInputs[j]==i){
+        Serial.print("Dieser Input muss 1 sein: ");
+        Serial.println(i);
+        dieserInputMuss1Sein = true;
+      }
+    }
+    uint8_t aktuellerInput = !digitalRead(i); //switches sind active-low
+    if (aktuellerInput){
+    Serial.print("PIN: ");
+    Serial.print(i);
+    Serial.print(" State: ");
+    Serial.println(aktuellerInput);
+    }
+    if (alleInputsRichtig){ // nur wenn alle bisher richtig waren muss das noch weiter angeschaut werden.
+      if (dieserInputMuss1Sein){ //input muss 1 sein
+        if (!aktuellerInput){ ///ist aber 0
+          alleInputsRichtig = false;
+        }
+      }
+      else{//input muss 0 sein
+        if (aktuellerInput){ //...ist aber 1
+          alleInputsRichtig = false;
+        }
+      } 
+
+    }  
+  }
+
+  if (alleInputsRichtig){
+    inputState |= 0b1;
+  }
+  else {
+    inputState &= 0x11111110;
+  }
+
+
 
 return inputState;
 }

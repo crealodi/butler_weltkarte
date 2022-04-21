@@ -31,6 +31,7 @@ typedef funcPtr(*StateFunc)();
 #define PIN_IN_SCHLOSS  (48)
 #define PIN_IN_TUER_AUF_TASTE (49)
 
+/*
 #define PIN_IN_1  (22)
 #define PIN_IN_2  (23)
 #define PIN_IN_3  (24)
@@ -60,10 +61,12 @@ typedef funcPtr(*StateFunc)();
 #define PIN_IN_22  (43)
 #define PIN_IN_23  (44)
 #define PIN_IN_24  (45)
-
+*/ //NOT USED SINCE ALL IS DONE IN LOOPS i = 22 to i<46
 
 #define PIN_OUT_RELAY (46)
 #define PIN_OUT_BEEP  (47)
+
+const uint8_t c_correctInputs[] = {22,24,32,33,38,40,42}; 
 
 /******************************************************************************************
  * Declarations
@@ -75,9 +78,6 @@ StateFunc puzzle_gameMode();
 StateFunc puzzle_openRelay();
 
 StateFunc puzzle_solved();
-
-
-
 
 uint8_t getInputState();
 
